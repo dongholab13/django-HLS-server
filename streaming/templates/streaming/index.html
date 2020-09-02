@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+<head>
+    <title>Live Cam</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
+</head>
+<body>
+<form>{% csrf_token %}</form>
+
+<main>
+    <div class="nav">
+        <div class="menu">
+            <!-- reload get thumbnail -->
+            <img class="website-text-logo" src="{% static 'img/snapshot.jpg' %}"/>
+        </div>
+    </div>
+    <div class="content">
+        <video id="video" autoplay controls="controls" width="100%" height="100%"></video>
+    </div>
+</main>
+
+<script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
+
+<script>
+  
+function getCookie(name) {
+		var cookieValue = null;
+		if (document.cookie && document.cookie != '') {
+			var cookies = document.cookie.split(';');
+			for (var i = 0; i < cookies.length; i++) {
+				var cookie = jQuery.trim(cookies[i]);
+				// Does this cookie string begin with the name we want?
+				if (cookie.substring(0, name.length + 1) == (name + '=')) {
+					cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+					break;
+				}
+			}
+		}
+		return cookieValue;
+	}
+	
+	function csrfSafeMethod(method) {
+		// these HTTP methods do not require CSRF protection
+		return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+	}
+	var csrftoken = getCookie('csrftoken');
+        if (Hls.isSupported()) {
+          var video1 = document.getElementById('video');
+          var hls1 = new Hls();
+          // bind them together
+          hls1.attachMedia(video1);
+          hls1.on(Hls.Events.MEDIA_ATTACHED, function () {
+            console.log("video and hls.js are now bound together !");
+            // load variable from views.py
+            hls1.loadSource("http://localhost:8000/file/female.m3u8");
+            hls1.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+              console.log("manifest loaded, found " + data.levels.length + " quality level");
+            });
+          });
+        }
+
+</script>
+</body>
+</html>
