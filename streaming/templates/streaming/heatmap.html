@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+{% load static %}
+{% csrf_token %}
+<html>
+<head>
+    <title>Live Cam</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
+</head>
+<body>
+<form>{% csrf_token %}</form>
+
+<main>
+  <div style="width:100%">
+    <div style="width:50%;float:left">
+      <div class="content">
+          <video id="video" autoplay controls="controls" width="560" height="349"></video>
+          <video id="video2" autoplay controls="controls" width="560" height="349"></video>
+
+        </div>
+
+    </div>
+    <div id='heatmap' style="width:50%;float:right;background-color: white;" >
+      
+    
+    </div>
+  </div>
+  
+  
+</main>
+
+<script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
+
+<script type="module">
+  
+function getCookie(name) {
+		var cookieValue = null;
+		if (document.cookie && document.cookie != '') {
+			var cookies = document.cookie.split(';');
+			for (var i = 0; i < cookies.length; i++) {
+				var cookie = jQuery.trim(cookies[i]);
+				// Does this cookie string begin with the name we want?
+				if (cookie.substring(0, name.length + 1) == (name + '=')) {
+					cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+					break;
+				}
+			}
+		}
+		return cookieValue;
+	}
+	
+	function csrfSafeMethod(method) {
+		// these HTTP methods do not require CSRF protection
+		return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+	}
+	var csrftoken = getCookie('csrftoken');
+        if (Hls.isSupported()) {
+          var video1 = document.getElementById('video');
+          var video2 = document.getElementById('video2');
+          var hls1 = new Hls();
+          var hls2 = new Hls();
+          // bind them together
+          hls1.attachMedia(video1);
+          hls2.attachMedia(video2);
+          hls1.on(Hls.Events.MEDIA_ATTACHED, function () {
+            console.log("video and hls.js are now bound together !");
+            // load variable from views.py
+            hls1.loadSource("http://192.168.0.43:9031/stream_1/female.m3u8");
+            hls1.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+              console.log("manifest loaded, found " + data.levels.length + " quality level");
+            });
+          });
+          hls2.on(Hls.Events.MEDIA_ATTACHED, function () {
+            console.log("video and hls.js are now bound together !");
+            // load variable from views.py
+            hls2.loadSource("http://192.168.0.43:9031/stream_1/female.m3u8");
+            hls2.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+              console.log("manifest loaded, found " + data.levels.length + " quality level");
+            });
+          });
+        }
+
+ setInterval(function () {getRealData()}, 1000);//request every x seconds
+
+function getRealData() {
+    $.ajax({
+            url: "http://192.168.0.43:9031/api/v1/heatmap/returnHeatmap/",
+            type: "GET",
+
+            success: function (response) {
+                console.log(response)
+            }
+        })
+}
+
+import * as THREE from "{% static 'three/three.module.js' %}";
+var camera, scene, renderer;
+var geometry, material, mesh;
+var imageWidth = 1594;
+var imageHeight = 1428;
+var heatmap_group;
+var heatmapMesh
+var heatmap_texture
+var heatmap_plane
+var heatmap = new Uint8Array(1594*1428);
+var data
+console.log(heatmap)
+heatmap_group = new THREE.Group();
+init();
+drawHeatmap();
+animate();
+
+function init() {
+	scene = new THREE.Scene();
+
+  var texture = THREE.ImageUtils.loadTexture("{% static 'TechGalleryMap4_1.png' %}")
+  console.log(texture)
+
+  var width = 400,
+  height = width * imageHeight / imageWidth,
+  halfHeight = height / 2;
+  var backgroundMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(width, height, 0),
+            new THREE.MeshBasicMaterial({
+                map: texture
+            }));
+  
+backgroundMesh.material.depthTest = false;
+backgroundMesh.material.depthWrite = false;
+
+ /*Data texture*/
+var side = 1000; // power of two textures are better cause powers of two are required by some algorithms. Like ones that decide what color will pixel have if amount of pixels is less than amount of textels (see three.js console error when given non-power-of-two texture)
+
+var amount = imageHeight*imageWidth; // you need 4 values for every pixel in side*side plane
+data = new Uint8Array(amount);
+/* 
+  You can also use any js typed array or ArrayBuffer itself
+  Most popular is Uint8Array (it can contain itegers from 0 to 255)
+*/
+for (var i = 0; i < amount; i++) {
+  data[i] = 0; // generates random r,g,b,a values from 0 to 1
+  /*  
+    When using Uint8Array multiply the random value by 255 to get same results
+    'cause in that case you use integers from 0 to 255 to represent colors
+    which is limiting but is more widely supported (see comment below)
+  */
+}
+
+/* 
+   If you got nothing, check console to see if you have this extension
+   If not: use Uint8Array instead of Float32Array and THREE.UnsignedByteType istead of 
+   THREE.FloatType in texture constructor
+*/
+var dataTex = new THREE.DataTexture(data, imageWidth, imageHeight, THREE.LuminanceFormat, THREE.UnsignedByteType);
+console.log(dataTex);
+/* 
+  In order to use the types THREE.FloatType and THREE.HalfFloatType, the WebGL implementation must support the respective extensions OES_texture_float and OES_texture_half_float.
+  https://threejs.org/docs/index.html#Reference/Textures/DataTexture
+  https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Using_Extensions
+*/
+dataTex.magFilter = THREE.NearestFilter; // also check out THREE.LinearFilter just to see the results
+dataTex.needsUpdate = true; // somehow this line is required for this demo to work. I have not figured that out yet. 
+
+/*Plane*/
+var planeGeo = new THREE.PlaneBufferGeometry(400, 400);
+var planeMat = new THREE.MeshBasicMaterial({ color: 0x4422ff, alphaMap: dataTex, transparent: true, opacity:0.5 });
+heatmap_plane = new THREE.Mesh(planeGeo, planeMat);
+scene.add(heatmap_plane);
+console.log(heatmap_plane.material.alphaMap.image.data)
+ 
+console.log(heatmap_texture)
+scene.add(backgroundMesh)
+//scene.add(heatmapMesh)
+
+scene.add(heatmap_group)
+camera = new THREE.PerspectiveCamera(45, imageWidth / imageHeight, 0.001, 1000);
+camera.position.z = halfHeight / Math.tan(Math.PI / 8);
+
+renderer = new THREE.WebGLRenderer( { antialias: true } );
+renderer.setSize( window.innerWidth/2, window.innerHeight );
+document.getElementById('heatmap').appendChild( renderer.domElement );
+
+}
+
+function drawHeatmap() {
+
+
+  
+}
+function animate() {
+
+	requestAnimationFrame( animate );
+  var rand1 = Math.floor(Math.random() * imageHeight);
+  var rand2 = Math.floor(Math.random() * imageWidth);
+  //console.log(heatmap[rand1][rand2])
+  //requestAnimationFrame( animate );
+  data[rand1*imageWidth + rand2] = 255
+  var dataTex = new THREE.DataTexture(data, imageWidth, imageHeight, THREE.LuminanceFormat, THREE.UnsignedByteType);
+
+  heatmap_plane.material.alphaMap=dataTex
+  heatmap_plane.material.needsUpdate = true;
+  //console.log(heatmap_plane.material.alphaMap.image.data)
+  renderer.render( scene, camera );
+
+  //var spriteMaterial = new THREE.SpriteMaterial( {color: 0xff0000 } );
+  //var sprite = new THREE.Sprite( spriteMaterial );
+  //sprite.scale.set(2, 2, 1)
+  //sprite.position.set(rand2*200/imageWidth - 100,rand1*200/imageHeight - 100,0)
+  //heatmap_group.add(sprite)
+}
+</script>
+</body>
+</html>

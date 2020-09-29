@@ -40,6 +40,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'media.apps.MediaConfig',
     'corsheaders',
+    'rest_framework',
+    'was_rest',
+    'channels'
 ]
 
 MIDDLEWARE = [
@@ -125,7 +128,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 MEDIA_URL = '/'
 # media folder root
-MEDIA_ROOT = '/home/skt-test/Downloads/django_rtsp_ipc-master/ipc_server/storage'
+MEDIA_ROOT = '/home/ubuntu/docker_storage/media_files'
+
+ASGI_APPLICATION = "ipc_server.routing.application"

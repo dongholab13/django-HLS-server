@@ -1,8 +1,50 @@
 <!DOCTYPE html>
 {% load static %}
+{% csrf_token %}
 <html>
 <head>
     <title>Live Cam</title>
+    	<style>
+		#container {
+			width:960px;
+			margin:0 auto;
+			text-align:center;
+		}
+		.tab {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
+		/* Float the list items side by side */
+		.tab li {
+			float: left;
+		}
+		/* Style the links inside the list items */
+		.tab li a {
+			display: inline-block;
+			color: #000;
+			text-align: center;
+			text-decoration: none;
+			padding: 14px 16px;
+			font-size: 27px;
+			transition:0.3s;
+		}
+		/* Style the tab content */
+		.tabcontent {
+			display: none;
+			background-color:rgb(0,154,200);
+			padding: 6px 12px;
+			color:#fff;
+		}
+		ul.tab li.current{
+			background-color: rgb(0,154,200);
+			color: #222;
+		}
+		.tabcontent.current {
+			display: block;
+		}
+	</style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
 </head>
@@ -10,21 +52,96 @@
 <form>{% csrf_token %}</form>
 
 <main>
-    <div class="nav">
-        <div class="menu">
-            <!-- reload get thumbnail -->
-            <img class="website-text-logo" src="{% static 'img/snapshot.jpg' %}"/>
+  <div style="width:100%">
+
+    <div id='main' style="width:50%;float:left;padding-top: 59.48px;background-color: rgb(0,154,200);" >
+      <img src='#' style="width:100%;" id='MainStreamPlayer'> 
+    </div>
+    <div id='heatmap' style="width:50%;float:right;" >
+      <ul class="tab">
+        <li class="current" data-tab="tab1"><a href="#">Trajectory</a></li>
+        <li data-tab="tab2"><a href="#">Heatmap</a></li>
+      </ul>
+      <div id="tab1" class="tabcontent current">
+        <img src='#' style="width:100%;" id='TrajectoryStreamPlayer'>
         </div>
+  
+      <div id="tab2" class="tabcontent">
+        <img src='#' style="width:100%;" id='HeatmapStreamPlayer'>
+      </div>
+
     </div>
-    <div class="content">
-        <video id="video" autoplay controls="controls" width="100%" height="100%"></video>
-    </div>
+  </div>
+  
+  
 </main>
 
 <script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
 
-<script>
-  
+<script type="module">
+
+setInterval(function () {getRealData()}, 30);//request every x seconds
+setInterval(function () {getTrajectoryData()}, 30);//request every x seconds
+setInterval(function () {getHeatmapData()}, 30);//request every x seconds
+
+$(function() {
+			$('ul.tab li').click(function() {
+				var activeTab = $(this).attr('data-tab');
+				$('ul.tab li').removeClass('current');
+				$('.tabcontent').removeClass('current');
+				$(this).addClass('current');
+				$('#' + activeTab).addClass('current');
+			})
+		});
+
+function getRealData() {
+    $.ajax({
+            url: "http://192.168.0.43:9031/api/v1/stream1/getImage/",
+            type: "GET",
+
+            success: function (response) {
+              if(response != 'no_file'){
+
+                document.getElementById("MainStreamPlayer").src = "http://192.168.0.43:9031/stream1/" + response
+              }
+              
+            }
+        })
+}
+
+function getTrajectoryData() {
+    $.ajax({
+            url: "http://192.168.0.43:9031/api/v1/stream2/getImage/",
+            type: "GET",
+
+            success: function (response) {
+              if(response != 'no_file'){
+                var newImage = new Image();
+                newImage.src = "http://192.168.0.43:9031/stream2/" + response
+                document.getElementById("TrajectoryStreamPlayer").src = newImage.src;
+              }
+              
+            }
+        })
+}
+
+function getHeatmapData() {
+    $.ajax({
+            url: "http://192.168.0.43:9031/api/v1/stream3/getImage/",
+            type: "GET",
+
+            success: function (response) {
+              if(response != 'no_file'){
+                var newImage = new Image();
+                newImage.src = "http://192.168.0.43:9031/stream3/" + response
+                document.getElementById("HeatmapStreamPlayer").src = newImage.src;
+              }
+              
+            }
+        })
+}
+
+
 function getCookie(name) {
 		var cookieValue = null;
 		if (document.cookie && document.cookie != '') {
@@ -48,14 +165,25 @@ function getCookie(name) {
 	var csrftoken = getCookie('csrftoken');
         if (Hls.isSupported()) {
           var video1 = document.getElementById('video');
+          var video2 = document.getElementById('video2');
           var hls1 = new Hls();
+          var hls2 = new Hls();
           // bind them together
           hls1.attachMedia(video1);
+          hls2.attachMedia(video2);
           hls1.on(Hls.Events.MEDIA_ATTACHED, function () {
             console.log("video and hls.js are now bound together !");
             // load variable from views.py
-            hls1.loadSource("http://localhost:8000/file/female.m3u8");
+            hls1.loadSource("http://192.168.0.43:9031/stream_1/female.m3u8");
             hls1.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+              console.log("manifest loaded, found " + data.levels.length + " quality level");
+            });
+          });
+          hls2.on(Hls.Events.MEDIA_ATTACHED, function () {
+            console.log("video and hls.js are now bound together !");
+            // load variable from views.py
+            hls2.loadSource("http://192.168.0.43:9031/stream_1/female.m3u8");
+            hls2.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
               console.log("manifest loaded, found " + data.levels.length + " quality level");
             });
           });

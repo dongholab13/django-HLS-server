@@ -19,6 +19,9 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     # add url from streaming directory - get urls from streaming/urls.py
+    path('api/v1/', include('was_rest.urls')),
     path('', include('streaming.urls')),
     path('media/', include('media.urls')),
+    
 ]
+#urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
